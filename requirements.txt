@@ -1,2 +1,3 @@
-pyYaml
+dungeons-and-trolls-client
 python-dotenv
+pyYaml
