@@ -19,7 +19,14 @@ pip install -r requirements.txt
 
 **Usage**
 
-* Add your api key to the .env file
+* Add your api key to the .env file. You can api key by calling register in the following manner:
+```sh
+curl --location --request POST 'https://docker.tivvit.cz/v1/register' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "username": "<your name>"
+}'
+```
 * Run the bot with 
 ```
 python3 bot.py
