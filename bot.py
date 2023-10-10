@@ -143,7 +143,6 @@ def main():
         while True:
             try:
                 print("----------")
-                time.sleep(1)
                 game = api_instance.dungeons_and_trolls_game()
                 print("current level", game.current_level)
 
