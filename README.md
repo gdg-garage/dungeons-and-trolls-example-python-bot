@@ -19,7 +19,11 @@ pip install -r requirements.txt
 
 **Usage**
 
-* Add your api key to the .env file
+* Add your API key to the .env file under API_KEY keyword. You 
+```
+API_KEY=myawesomeapikey
+```
+
 * Run the bot with 
 ```
 python3 bot.py
