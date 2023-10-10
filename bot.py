@@ -30,39 +30,30 @@ configuration = dnt.Configuration(
 )
 
 # Computes dot product for the given wepon and character attritbutes.
-def compute_damage(weapon_damage_amount: DungeonsandtrollsAttributes, character_attributes: DungeonsandtrollsAttributes) -> float:
+def compute_damage(skill_damage_amount: DungeonsandtrollsAttributes, character_attributes: DungeonsandtrollsAttributes) -> float:
     return sum([weapon_val * getattr(character_attributes, attr_name, 0) 
-                for attr_name, weapon_val in weapon_damage_amount.to_dict().items()
+                for attr_name, weapon_val in skill_damage_amount.to_dict().items()
                 if weapon_val])
 
-def print_attributes(attributes: DungeonsandtrollsAttributes):
-    for attr_name, attr_val in attributes.to_dict().items():
-        print(attr_name, attr_val)
-
-# Chooses the best weapon (which can deal the highest damage amount) that the character can afford.
+# Chooses free weapon.
 def choose_best_weapon(weapons: Iterator[DungeonsandtrollsItem], character_attributes: DungeonsandtrollsAttributes, budget: int) -> DungeonsandtrollsItem:
     currentWeapon = None
     currentDamage = 0
     for weapon in weapons:
         weapon : DungeonsandtrollsItem
-        if weapon.price > budget:
-            continue
-        for skill in weapon.skills:
-            skill: DungeonsandtrollsSkill
-            skill_damage = compute_damage(skill.damage_amount, character_attributes)
-            if (skill_damage > currentDamage):
-                currentWeapon = weapon
-                currentDamage = skill_damage
+        if weapon.price == 0:
+            currentWeapon = weapon
+            break
     if currentWeapon is not None:
-        print("Buying", currentWeapon.name, currentWeapon.attributes)
+        print("Buying", currentWeapon.name)
     return currentWeapon
 
 def assign_skill_points(character: DungeonsandtrollsCharacter, api_instance: dnt.DungeonsAndTrollsApi) -> bool:
     if character.skill_points == 0:
         return False
-    attr: DungeonsandtrollsAttributes = DungeonsandtrollsAttributes(strength=character.skill_points)
+    attr: DungeonsandtrollsAttributes = DungeonsandtrollsAttributes(stamina=character.skill_points)
     api_instance.dungeons_and_trolls_assign_skill_points(attr)
-    print("Assigning " + str(character.skill_points) + " skill points to strength")
+    print("Assigning " + str(character.skill_points) + " skill points to stamina")
     return True
 
 # Optimization function to select the best gear for the player based on budget.
@@ -108,27 +99,26 @@ def select_skill(items: Iterator[DungeonsandtrollsItem], character_attrs: Dungeo
 
 # Search for a tile with stairs on it.
 def find_stairs_to_next_level(game: DungeonsandtrollsGameState) -> DungeonsandtrollsCoordinates:
-    level : DungeonsandtrollsLevel = (game.map.levels[game.current_level])
+    level : DungeonsandtrollsLevel = (game.map.levels[0])
     for object in level.objects:
         object : DungeonsandtrollsMapObjects
         if (object.is_stairs):
             return object.position
         
 # Find any monster on the current level.
-def find_monster(game: DungeonsandtrollsGameState, unreachable_monsters: set) -> (DungeonsandtrollsMonster, DungeonsandtrollsCoordinates):
-    level : DungeonsandtrollsLevel = (game.map.levels[game.current_level])
+def find_monster(game: DungeonsandtrollsGameState) -> (DungeonsandtrollsMonster, DungeonsandtrollsCoordinates):
+    level : DungeonsandtrollsLevel = (game.map.levels[0])
     for obj in level.objects:
         if not obj.monsters:
             continue
         for monster in obj.monsters:
             monster: DungeonsandtrollsMonster
-            if monster.id not in unreachable_monsters:
-                return monster, obj.position
+            return monster, obj.position
     return None, None
 
 # Update the monster information, e.g. position if the monster moved recently.
 def update_monster(monster_id: str, game: DungeonsandtrollsGameState) -> (DungeonsandtrollsMonster, DungeonsandtrollsCoordinates):
-    level : DungeonsandtrollsLevel = game.map.levels[game.current_level]
+    level : DungeonsandtrollsLevel = game.map.levels[0]
     for obj in level.objects:
         obj: DungeonsandtrollsMapObjects
         for monster in obj.monsters:
@@ -149,7 +139,6 @@ def main():
 
         monster_pos : DungeonsandtrollsCoordinates = None
         monster : DungeonsandtrollsMonster = None
-        unreachable_monsters = set()
 
         while True:
             try:
@@ -167,9 +156,7 @@ def main():
                 if monster_pos is None:
                     # locate any monster on current level
                     print("locating monster")
-                    monster, monster_pos = find_monster(game, unreachable_monsters)
-                    if monster is None:
-                        unreachable_monsters = set()
+                    monster, monster_pos = find_monster(game)
                     
                     if monster is None:
                         print("no monster on level, moving to stairs")
@@ -190,10 +177,11 @@ def main():
                         filter(lambda x: x.slot == DungeonsandtrollsItemType.MAINHAND, game.character.equip),
                         game.character.attributes)
                     if not skill:
-                        api_instance.dungeons_and_trolls_respawn({})
+                        print("I can't use skill!")
                         continue
+                    skill_damage = compute_damage(skill.damage_amount, game.character.attributes)
                     # fight the monster
-                    print("fighting with " + skill.name + "! monster life: " + str(monster.life_percentage))
+                    print("fighting with " + skill.name + "! Damage dealt: " + str(skill_damage) + " monster life: " + str(monster.life_percentage))
                     try:
                         api_instance.dungeons_and_trolls_skill(DungeonsandtrollsSkillUse(skillId=skill.id, targetId=monster.id))
                     except ApiException as e:
@@ -202,13 +190,7 @@ def main():
                 else:
                     # move to the monster
                     print("moving to monster on pos: " + str(monster_pos) + ", my pos: " + str(character_pos))
-                    try:
-                        api_instance.dungeons_and_trolls_move(monster_pos)
-                    except ApiException as e:
-                        print("Can't move to monster: %s\n" % e)
-                        print("Selecting another one...")
-                        unreachable_monsters.add(monster.id)
-                        monster, monster_pos = find_monster(game, unreachable_monsters)
+                    api_instance.dungeons_and_trolls_move(monster_pos)
 
             except ApiException as e:
                 print("Exception when calling DungeonsAndTrollsApi: %s\n" % e)
