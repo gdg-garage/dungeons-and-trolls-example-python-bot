@@ -83,7 +83,7 @@ def select_gear(items: list[DungeonsandtrollsItem], character: Dungeonsandtrolls
 # Buy the provided gear, if there is any.
 def maybe_buy_gear(gear: DungeonsandtrollsIdentifiers, api_instance: dnt.DungeonsAndTrollsApi):
     if len(gear.ids) > 0:
-        api_instance.dungeons_and_trolls_buy(body=gear)
+        api_instance.dungeons_and_trolls_buy(gear)
 
 # Check the skill cost against the character attributes.
 def can_character_use_skill(skill_cost: DungeonsandtrollsAttributes, character_attributes: DungeonsandtrollsAttributes) -> bool:
@@ -190,7 +190,7 @@ def main():
                         filter(lambda x: x.slot == DungeonsandtrollsItemType.MAINHAND, game.character.equip),
                         game.character.attributes)
                     if not skill:
-                        api_instance.dungeons_and_trolls_respawn(body={})
+                        api_instance.dungeons_and_trolls_respawn({})
                         continue
                     # fight the monster
                     print("fighting with " + skill.name + "! monster life: " + str(monster.life_percentage))
